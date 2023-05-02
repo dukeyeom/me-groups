@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Mutually Exclusive Tabs",
+  "version": "1.0",
+  "background": {
+    "service_worker": "background.js"
+  },
+  "host_permissions": [
+      "https://developer.chrome.com/*"
+  ],
+  "permissions": [
+    "tabs",
+    "tabGroups"
+  ],
+  "commands": {
+    "addTabToActiveGroup": {
+      "suggested_key": {
+        "default": "Alt+T",
+        "mac": "Alt+T"
+      },
+      "description": "Add new tab in active group."
+    }
+  }
+}
