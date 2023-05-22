@@ -7,7 +7,7 @@ let lastActiveTab = {};
 chrome.tabs.onActivated.addListener((activeInfo) => {
   chrome.tabs.get(activeInfo.tabId, (tab) => {
     if (tab.groupId !== -1)
-    lastActiveTab[tab.groupId] = activeInfo.tabId;
+      lastActiveTab[tab.groupId] = activeInfo.tabId;
   });
 });
 
@@ -19,21 +19,21 @@ chrome.tabGroups.onUpdated.addListener(async (targetGroup) => {
   chrome.tabGroups.query({windowId: targetGroup.windowId}, (groupsInActiveWindow) => {
     groupsInActiveWindow.forEach(groupIterator => {
       if (targetGroup.id !== groupIterator.id) {
-          chrome.tabGroups.onUpdated.removeListener();
-          // Make the listener look the other way for a sec, otherwise we enter an infinite loop
-          chrome.tabGroups.update(groupIterator.id, {collapsed: true});
-          chrome.tabGroups.onUpdated.addListener();
+        chrome.tabGroups.onUpdated.removeListener();
+        // Make the listener look the other way for a sec, otherwise we enter an infinite loop
+        chrome.tabGroups.update(groupIterator.id, {collapsed: true});
+        chrome.tabGroups.onUpdated.addListener();
       }
     });
   })
-  // Activate last opened tab (if none recorded then last tab in group in our target group
+  // Activate last opened tab (if none recorded then last tab) in target group
   let tabsInActiveGroup = await chrome.tabs.query({groupId: targetGroup.id});
   let lastTabInActiveGroup = tabsInActiveGroup[tabsInActiveGroup.length-1].id;
   chrome.tabs.update(
     lastActiveTab?.[targetGroup.id] ?? lastTabInActiveGroup,
     {active: true}, (tab) => {
     lastActiveTab[targetGroup.id] = tab.id;
-  })
+  });
 });
 
 chrome.commands.onCommand.addListener((command) => {
