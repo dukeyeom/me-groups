@@ -1,47 +1,39 @@
-let activeGroupId;
+// Keeps track of which tab to switch to when reopening a group.
+// Keys: groupIds | Values: tabIds
 let lastActiveTab = {};
 
+// Whenever user activates a tab, if the tab is a member of a group,
+// track it in lastActiveTab 
 chrome.tabs.onActivated.addListener((activeInfo) => {
   chrome.tabs.get(activeInfo.tabId, (tab) => {
     if (tab.groupId !== -1)
     lastActiveTab[tab.groupId] = activeInfo.tabId;
   });
-  console.log(lastActiveTab);
 });
 
-chrome.tabGroups.onUpdated.addListener(async (group) => {
-  if (group.collapsed) { return; }
-  let str = "Group " + group.title + " is " + ((group.collapsed) ? "open" : "closed") + " (id " + group.id + ")";
+chrome.tabGroups.onUpdated.addListener(async (targetGroup) => {
+  if (targetGroup.collapsed) { return; }
+  let str = "Group " + targetGroup.title + " is " + ((targetGroup.collapsed) ? "closed" : "open") + " (id " + targetGroup.id + ")";
   console.log(str);
-
-  chrome.tabGroups.query({}, (TabGroupArray) => {
-      // console.log(TabGroupArray.length);
-      
-      TabGroupArray.forEach(groupIterator => {
-
-          if (group.id !== groupIterator.id) {
-              chrome.tabGroups.onUpdated.removeListener();
-              chrome.tabGroups.update(groupIterator.id, {collapsed: true});
-              chrome.tabGroups.onUpdated.addListener();
-          }
-          else {
-              activeGroupId = group.id;
-          }
-          // console.log(groupIterator.collapsed);
-      });
+  // Collapse all other groups that share the same window as target group
+  chrome.tabGroups.query({windowId: targetGroup.windowId}, (groupsInActiveWindow) => {
+    groupsInActiveWindow.forEach(groupIterator => {
+      if (targetGroup.id !== groupIterator.id) {
+          chrome.tabGroups.onUpdated.removeListener();
+          // Make the listener look the other way for a sec, otherwise we enter an infinite loop
+          chrome.tabGroups.update(groupIterator.id, {collapsed: true});
+          chrome.tabGroups.onUpdated.addListener();
+      }
+    });
   })
-  console.log("activeGroupId: " + group.id);
-  let tabToSwitchTo = lastActiveTab?.[group.id];
-  let switchToTab = () => {chrome.tabs.update(
-    tabToSwitchTo ?? lastTabInActiveGroup,
+  // Activate last opened tab (if none recorded then last tab in group in our target group
+  let tabsInActiveGroup = await chrome.tabs.query({groupId: targetGroup.id});
+  let lastTabInActiveGroup = tabsInActiveGroup[tabsInActiveGroup.length-1].id;
+  chrome.tabs.update(
+    lastActiveTab?.[targetGroup.id] ?? lastTabInActiveGroup,
     {active: true}, (tab) => {
-    lastActiveTab[activeGroupId] = tab.id;
-  })};
-  let tabsInActiveGroup = await chrome.tabs.query({groupId: group.id}/*, result => {defaultTab = result[0].id; console.log("AH: " + defaultTab);}*/);
-  let lastTabInActiveGroup = tabsInActiveGroup[0].id;
-  // console.log('defaultId = ' + defaultTab[0].id);
-  switchToTab();
-  console.log("Switching to tabId " + tabToSwitchTo);
+    lastActiveTab[targetGroup.id] = tab.id;
+  })
 });
 
 chrome.commands.onCommand.addListener((command) => {
@@ -53,8 +45,8 @@ chrome.commands.onCommand.addListener((command) => {
 
     /* let groupNum = (parseInt(command.charAt(command.length - 1)) - 1);
     
-    chrome.tabGroups.query({}, (TabGroupArray) => {
-        chrome.tabGroups.update(TabGroupArray[groupNum].id, {collapsed: false});
+    chrome.tabGroups.query({}, (tabsInGroup) => {
+        chrome.tabGroups.update(tabsInGroup[groupNum].id, {collapsed: false});
     }); */
 });
 
