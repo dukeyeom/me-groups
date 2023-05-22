@@ -1,13 +1,10 @@
-// Keeps track of which tab to switch to when reopening a group.
-// Keys: groupIds | Values: tabIds
-let lastActiveTab = {};
-
 // Whenever user activates a tab, if the tab is a member of a group,
 // track it in lastActiveTab 
 chrome.tabs.onActivated.addListener((activeInfo) => {
-  chrome.tabs.get(activeInfo.tabId, (tab) => {
+  chrome.tabs.get(activeInfo.tabId, async (tab) => {
     if (tab.groupId !== -1)
-      lastActiveTab[tab.groupId] = activeInfo.tabId;
+      await chrome.storage.session.set({[tab.groupId]: activeInfo.tabId});
+      console.log("Added tabId " + activeInfo.tabId)
   });
 });
 
@@ -29,10 +26,12 @@ chrome.tabGroups.onUpdated.addListener(async (targetGroup) => {
   // Activate last opened tab (if none recorded then last tab) in target group
   let tabsInActiveGroup = await chrome.tabs.query({groupId: targetGroup.id});
   let lastTabInActiveGroup = tabsInActiveGroup[tabsInActiveGroup.length-1].id;
+  let targetTab = await chrome.storage.session.get(String(targetGroup.id))
+  .then(response => response[targetGroup.id]).catch((e) => {console.log(e)}) ?? lastTabInActiveGroup;
   chrome.tabs.update(
-    lastActiveTab?.[targetGroup.id] ?? lastTabInActiveGroup,
+    targetTab,
     {active: true}, (tab) => {
-    lastActiveTab[targetGroup.id] = tab.id;
+    chrome.storage.session.set({[targetGroup.id]: tab.id});
   });
 });
 
