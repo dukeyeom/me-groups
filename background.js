@@ -9,13 +9,13 @@ chrome.tabs.onActivated.addListener((activeInfo) => {
   console.log(lastActiveTab);
 });
 
-chrome.tabGroups.onUpdated.addListener((group) => {
+chrome.tabGroups.onUpdated.addListener(async (group) => {
   if (group.collapsed) { return; }
   let str = "Group " + group.title + " is " + ((group.collapsed) ? "open" : "closed") + " (id " + group.id + ")";
   console.log(str);
 
   chrome.tabGroups.query({}, (TabGroupArray) => {
-      console.log(TabGroupArray.length);
+      // console.log(TabGroupArray.length);
       
       TabGroupArray.forEach(groupIterator => {
 
@@ -27,17 +27,20 @@ chrome.tabGroups.onUpdated.addListener((group) => {
           else {
               activeGroupId = group.id;
           }
-          console.log(groupIterator.collapsed);
+          // console.log(groupIterator.collapsed);
       });
   })
   console.log("activeGroupId: " + group.id);
   let tabToSwitchTo = lastActiveTab?.[group.id];
-  //chrome.tabs.query({groupId: group.id}, result => {result.id; console.log("tab: " +result.id);}).then(
-  chrome.tabs.update(
-    tabToSwitchTo,
+  let switchToTab = () => {chrome.tabs.update(
+    tabToSwitchTo ?? lastTabInActiveGroup,
     {active: true}, (tab) => {
     lastActiveTab[activeGroupId] = tab.id;
-  });
+  })};
+  let tabsInActiveGroup = await chrome.tabs.query({groupId: group.id}/*, result => {defaultTab = result[0].id; console.log("AH: " + defaultTab);}*/);
+  let lastTabInActiveGroup = tabsInActiveGroup[0].id;
+  // console.log('defaultId = ' + defaultTab[0].id);
+  switchToTab();
   console.log("Switching to tabId " + tabToSwitchTo);
 });
 
