@@ -1,5 +1,5 @@
 // Whenever user activates a tab, if the tab is a member of a group,
-// track it in lastActiveTab 
+// record this as a property {groupId: tabId} in session storage
 chrome.tabs.onActivated.addListener((activeInfo) => {
   chrome.tabs.get(activeInfo.tabId, async (tab) => {
     if (tab.groupId !== -1)
@@ -35,19 +35,39 @@ chrome.tabGroups.onUpdated.addListener(async (targetGroup) => {
   });
 });
 
-chrome.commands.onCommand.addListener((command) => {
+// If a tab is moved from one group to another, updates session storage to reflect
+// the move. Without this the source group will be stuck closed
+chrome.tabs.onUpdated.addListener((movedTabId, moveInfo, tab) => {
+  chrome.storage.session.get(null, items => {
+    for (let storedGroupId in items) {
+      if (items[storedGroupId] === movedTabId) {
+        chrome.storage.session.remove(String(storedGroupId));
+        console.log(`Tab ${tab.title} moved to group ${moveInfo.groupId}`);
+      }
+    }
+  });
+});
+
+// When a group is removed, updates session storage
+chrome.tabGroups.onRemoved.addListener(group => {
+  console.log(`Removing group "${group.title}"`);
+  chrome.storage.session.remove(String(group.id));
+});
+
+// TODO: Implement keyboard shortcuts to open groups
+
+ /* chrome.commands.onCommand.addListener((command) => {
     if (command === "addTabToActiveGroup") {
         chrome.tabs.create({}, (tab) => {
             chrome.tabs.group({groupId: activeGroupId, tabIds: tab.id});
-        });
+        }); 
     }
-
+*/
     /* let groupNum = (parseInt(command.charAt(command.length - 1)) - 1);
     
     chrome.tabGroups.query({}, (tabsInGroup) => {
         chrome.tabGroups.update(tabsInGroup[groupNum].id, {collapsed: false});
     }); */
-});
 
 /*
     "select-tabGroup-1": {
