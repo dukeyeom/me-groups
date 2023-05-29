@@ -38,11 +38,14 @@ chrome.tabGroups.onUpdated.addListener(async (targetGroup) => {
 // If a tab is moved from one group to another, updates session storage to reflect
 // the move. Without this the source group will be stuck closed
 chrome.tabs.onUpdated.addListener((movedTabId, moveInfo, tab) => {
+  if (moveInfo.groupId === undefined)
+    return;
   chrome.storage.session.get(null, items => {
     for (let storedGroupId in items) {
-      if (items[storedGroupId] === movedTabId) {
+      if (items[storedGroupId] === movedTabId && moveInfo.groupId !== storedGroupId) {
         chrome.storage.session.remove(String(storedGroupId));
-        console.log(`Tab ${tab.title} moved to group ${moveInfo.groupId}`);
+        console.log(`Tab ${tab.title} moved from group ${storedGroupId}
+          to group ${moveInfo.groupId}`);
       }
     }
   });
