@@ -1,3 +1,33 @@
+async function openTargetGroup(targetGroup) {
+  console.log(`Running openTargetGroup(${targetGroup})`);
+  chrome.tabGroups.update(targetGroup, {collapsed: false});
+}
+
+async function collapseAllButTargetGroup(targetGroup) {
+  return chrome.tabGroups.query({windowId: targetGroup.windowId}, (groupsInActiveWindow) => {
+    groupsInActiveWindow.forEach(groupIterator => {
+      if (targetGroup.id !== groupIterator.id) {
+        chrome.tabGroups.onUpdated.removeListener();
+        // Make the listener look the other way for a sec, otherwise we enter an infinite loop
+        chrome.tabGroups.update(groupIterator.id, {collapsed: true});
+        chrome.tabGroups.onUpdated.addListener();
+      }
+    });
+  })
+};
+
+async function openLastActiveTabInGroup(targetGroup) {
+  let tabsInActiveGroup = await chrome.tabs.query({groupId: targetGroup});
+  let lastTabInActiveGroup = tabsInActiveGroup[tabsInActiveGroup.length-1].id;
+  let targetTab = await chrome.storage.session.get(String(targetGroup))
+  .then(response => response[targetGroup]).catch((e) => {console.log(e)}) ?? lastTabInActiveGroup;
+  chrome.tabs.update(
+    targetTab,
+    {active: true}, (tab) => {
+    chrome.storage.session.set({[targetGroup]: tab.id});
+  });
+}
+
 // Whenever user activates a tab, if the tab is a member of a group,
 // record this as a property {groupId: tabId} in session storage
 chrome.tabs.onActivated.addListener((activeInfo) => {
@@ -13,26 +43,9 @@ chrome.tabGroups.onUpdated.addListener(async (targetGroup) => {
   let str = "Group " + targetGroup.title + " is " + ((targetGroup.collapsed) ? "closed" : "open") + " (id " + targetGroup.id + ")";
   console.log(str);
   // Collapse all other groups that share the same window as target group
-  chrome.tabGroups.query({windowId: targetGroup.windowId}, (groupsInActiveWindow) => {
-    groupsInActiveWindow.forEach(groupIterator => {
-      if (targetGroup.id !== groupIterator.id) {
-        chrome.tabGroups.onUpdated.removeListener();
-        // Make the listener look the other way for a sec, otherwise we enter an infinite loop
-        chrome.tabGroups.update(groupIterator.id, {collapsed: true});
-        chrome.tabGroups.onUpdated.addListener();
-      }
-    });
-  })
+  await collapseAllButTargetGroup(targetGroup);
   // Activate last opened tab (if none recorded then last tab) in target group
-  let tabsInActiveGroup = await chrome.tabs.query({groupId: targetGroup.id});
-  let lastTabInActiveGroup = tabsInActiveGroup[tabsInActiveGroup.length-1].id;
-  let targetTab = await chrome.storage.session.get(String(targetGroup.id))
-  .then(response => response[targetGroup.id]).catch((e) => {console.log(e)}) ?? lastTabInActiveGroup;
-  chrome.tabs.update(
-    targetTab,
-    {active: true}, (tab) => {
-    chrome.storage.session.set({[targetGroup.id]: tab.id});
-  });
+  openLastActiveTabInGroup(targetGroup.id);
 });
 
 // If a tab is moved from one group to another, updates session storage to reflect
@@ -57,48 +70,37 @@ chrome.tabGroups.onRemoved.addListener(group => {
   chrome.storage.session.remove(String(group.id));
 });
 
-// TODO: Implement keyboard shortcuts to open groups
+// Given a windowId, returns an array of groupIds corresponding to
+// visual order of groups in the specified window
+// (Chrome API provides no easy way to retrieve this index, so I have to find it myself!)
+async function getGroupIndexArray(windowId) {
+  let groupIdArray = [];
+  return await chrome.tabs.query({windowId})
+    .then(tabArray => {
+      tabArray.sort((a, b) => {
+        if (a.index < b.index) return -1;
+        if (a.index === b.index) return 0;
+        if (a.index > b.index) return 1;
+      })
+      for (let tab of tabArray) {
+        if (tab.groupId !== -1 && groupIdArray.at(-1) !== tab.groupId)
+          groupIdArray.push(tab.groupId);
+      }
+      return groupIdArray;
+    });
+};
 
- /* chrome.commands.onCommand.addListener((command) => {
-    if (command === "addTabToActiveGroup") {
-        chrome.tabs.create({}, (tab) => {
-            chrome.tabs.group({groupId: activeGroupId, tabIds: tab.id});
-        }); 
+chrome.commands.onCommand.addListener(async command => {
+  if (command.includes('openTabGroup')) {
+    console.log(`Running command ${command}`);
+    const groupNum = Number(command.charAt(command.length - 1));
+    const groupIdArray = await getGroupIndexArray(chrome.windows.WINDOW_ID_CURRENT);
+    const targetGroup = groupIdArray[groupNum-1];
+    if (targetGroup) {
+      console.log(`Opening group id = ${targetGroup}`);
+      collapseAllButTargetGroup(targetGroup);
+      openTargetGroup(targetGroup);
+      openLastActiveTabInGroup(targetGroup);
     }
-*/
-    /* let groupNum = (parseInt(command.charAt(command.length - 1)) - 1);
-    
-    chrome.tabGroups.query({}, (tabsInGroup) => {
-        chrome.tabGroups.update(tabsInGroup[groupNum].id, {collapsed: false});
-    }); */
-
-/*
-    "select-tabGroup-1": {
-      "suggested_key": {
-        "default": "Alt+1",
-        "mac": "Alt+1"
-      },
-      "description": "Select tab group 2."
-    },
-    "select-tabGroup-2": {
-      "suggested_key": {
-        "default": "Alt+2",
-        "mac": "Alt+2"
-      },
-      "description": "Select tab group 3."
-    },
-    "select-tabGroup-3": {
-      "suggested_key": {
-        "default": "Alt+3",
-        "mac": "Alt+3"
-      },
-      "description": "Select tab group 3."
-    },
-    "select-tabGroup-4": {
-      "suggested_key": {
-        "default": "Alt+4",
-        "mac": "Alt+4"
-      },
-      "description": "Select tab group 4."
-    }
-*/
+  }
+});

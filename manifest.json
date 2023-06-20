@@ -11,15 +11,48 @@
   "permissions": [
     "tabs",
     "tabGroups",
-    "storage"
+    "storage",
+    "commands"
   ],
   "commands": {
-    "addTabToActiveGroup": {
+    "openTabGroup1": {
       "suggested_key": {
-        "default": "Alt+T",
-        "mac": "Alt+T"
+        "default": "Ctrl+1",
+        "mac": "MacCtrl+1"
       },
-      "description": "Add new tab in active group."
+      "description": "Expand tab group 1"
+    },
+    "openTabGroup2": {
+      "suggested_key": {
+        "default": "Ctrl+2",
+        "mac": "MacCtrl+2"
+      },
+      "description": "Expand tab group 2"
+    },
+    "openTabGroup3": {
+      "suggested_key": {
+        "default": "Ctrl+3",
+        "mac": "MacCtrl+3"
+      },
+      "description": "Expand tab group 3"
+    },
+    "openTabGroup4": {
+      "description": "Expand tab group 4"
+    },
+    "openTabGroup5": {
+      "description": "Expand tab group 5"
+    },
+    "openTabGroup6": {
+      "description": "Expand tab group 6"
+    },
+    "openTabGroup7": {
+      "description": "Expand tab group 7"
+    },
+    "openTabGroup8": {
+      "description": "Expand tab group 8"
+    },
+    "openTabGroup9": {
+      "description": "Expand tab group 9"
     }
   }
 }
