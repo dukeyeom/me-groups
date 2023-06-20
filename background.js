@@ -4,11 +4,12 @@ async function openTargetGroup(targetGroup) {
 }
 
 async function collapseAllButTargetGroup(targetGroup) {
-  return chrome.tabGroups.query({windowId: targetGroup.windowId}, (groupsInActiveWindow) => {
+  return chrome.tabGroups.query({windowId: -2}, (groupsInActiveWindow) => {
     groupsInActiveWindow.forEach(groupIterator => {
-      if (targetGroup.id !== groupIterator.id) {
+      if (targetGroup !== groupIterator.id) {
         chrome.tabGroups.onUpdated.removeListener();
         // Make the listener look the other way for a sec, otherwise we enter an infinite loop
+        console.log(`In collapseAllBut..() collapsing group ${targetGroup}`);
         chrome.tabGroups.update(groupIterator.id, {collapsed: true});
         chrome.tabGroups.onUpdated.addListener();
       }
@@ -43,7 +44,7 @@ chrome.tabGroups.onUpdated.addListener(async (targetGroup) => {
   let str = "Group " + targetGroup.title + " is " + ((targetGroup.collapsed) ? "closed" : "open") + " (id " + targetGroup.id + ")";
   console.log(str);
   // Collapse all other groups that share the same window as target group
-  await collapseAllButTargetGroup(targetGroup);
+  await collapseAllButTargetGroup(targetGroup.id);
   // Activate last opened tab (if none recorded then last tab) in target group
   openLastActiveTabInGroup(targetGroup.id);
 });
